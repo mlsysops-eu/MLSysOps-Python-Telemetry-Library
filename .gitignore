@@ -1,0 +1,5 @@
+dist
+build
+/mlstelemetry.egg-info/
+.idea
+__pycache__

@@ -1,0 +1,6 @@
+opentelemetry-exporter-otlp
+opentelemetry-api
+opentelemetry-sdk
+asyncio
+prometheus_client
+cachetools
