@@ -3,8 +3,10 @@ name: Build & publish
 on:
   push:
     branches: [ "main" ]
+    tags: ['v*']
   pull_request:
     branches: [ "main" ]
+  
 
   workflow_dispatch:
 
@@ -13,13 +15,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: base-dind-2204-amd64
-    #strategy:
-    #  matrix:
-    #    archconfig: [ x86_64, aarch64 ]
-    #    #build_type: [Debug, Release]
-    #  fail-fast: false
-
+    runs-on: ["base-dind-2204-amd64"]
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
@@ -31,21 +27,26 @@ jobs:
         if [[ "${{github.event.pull_request.head.sha}}" != "" ]]
         then
           echo "ARTIFACT_SHA=$(echo ${{github.event.pull_request.head.sha}})" >> $GITHUB_ENV
+          echo "CI_COMMIT_TAG=0.0.0" >> $GITHUB_ENV
         else
           echo "ARTIFACT_SHA=$(echo ${GITHUB_REF##*/})" >> $GITHUB_ENV
+          echo "CI_COMMIT_TAG=${{ github.ref_name }}" >> $GITHUB_ENV
         fi
 
     - name: Install python dependencies
       run: |
-        python3 -m pip install --upgrade pip
-        if [ -f requirements.txt ]; then python3 -m pip install -r requirements.txt; fi
+        sudo apt update && sudo apt install -y python3.10-venv
+        python3 -m venv .venv
+        . .venv/bin/activate
+        .venv/bin/python3 -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then .venv/bin/python3 -m pip install -r requirements.txt; fi
 
-    - name: Lint with flake8
-      run: |
-        # stop the build if there are Python syntax errors or undefined names
-        python3 -m flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        python3 -m flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    #- name: Lint with flake8
+    #  run: |
+    #    # stop the build if there are Python syntax errors or undefined names
+    #    python3 -m flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+    #    # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+    #    python3 -m flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
     #- name: Test with pytest
     #  env:
@@ -62,15 +63,17 @@ jobs:
 
     - name: Build pip package
       run: |
-        python3 -m build
+        . .venv/bin/activate
+        .venv/bin/python3 -m pip install build
+        .venv/bin/python3 -m build
         VERSION=$(python3 setup.py --version)
         PYVER=$(python3 --version | awk '{print $2}' | awk -F\. '{print $1 $2 }')
-        echo "wheel_name=mlstelemetry-${VERSION}-${PYVER}-${PYVER}m_Linux_$(uname -m)" >> $GITHUB_ENV
-        echo "built: ${{ env.wheel_name }}"
+        #echo "wheel_name=mlstelemetry-${VERSION}-${PYVER}-${PYVER}m_Linux_$(uname -m)" >> $GITHUB_ENV
+        #echo "built: ${{ env.wheel_name }}"
 
-     # FIXME: add pypi publish step
-     - name: Publish package
-       if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
-       uses: pypa/gh-action-pypi-publish@release/v1
-       with:
-         password: ${{ secrets.PYPI_TOKEN }}
+    # FIXME: add pypi publish step
+    - name: Publish package
+      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        password: ${{ secrets.PYPI_TOKEN }}
