@@ -4,3 +4,4 @@ opentelemetry-sdk
 asyncio
 prometheus_client
 cachetools
+build
